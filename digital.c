@@ -50,34 +50,53 @@ void display(int value)
 
 void setup_adc(void)
 {
-	AD1CON2 = 0b0000000000000010;
-	
+	AD1PCFG = 0xFFFE;
+	//SSRC<2:0> = 111 implies internal counter ends sampling and starts converting.
+	AD1CON1 = 0x00E0;
+ 	//set AN0 as S/H input.
+	AD1CHS = 0x0000;
+	AD1CSSL = 0;
+ 	//sample time = 31Tad, Tad = 3Tcy
+	AD1CON3 = 0x1F02;
+	AD1CON2 = 0;
+ 	//turn on ADC
+	AD1CON1bits.ADON = 1;
+}
+
+void delay()
+{
+	int j;
+	int k;
+
+	for (j = 0; j < 1000; j++)
+		for (k = 0; k < 1000; k++);
 }
 
 int main(void)
 {
-	int i;
-	int j;
-	int k;
+	int adc_value;
+	float voltage;
+	float bar_value;
 
-  	//set all pin functions to digital
-	AD1PCFGL = 0xFFFF;
-	//OUTPUTS:	EVERYTHING ELSE
-	TRISB = 0b0000000000000000;
+	TRISB = 0b0000000000000000;	//all PORTB pins are outputs
 
 	setup_adc();
 
-	while (1)
+	while (1) // repeat continuously
 	{
-		for (i = 0; i < 11; i++)
-		{
-			//display the value on the LED bar graph
-			display(i);
-			//delay
-			for (j = 0; j < 1000; j++)
-				for (k = 0; k < 1000; k++);
-		}
+		AD1CON1bits.SAMP = 1; // start sampling, then after 31Tad go to conversion
+		while (!AD1CON1bits.DONE){}; // conversion done?
+		adc_value = ADC1BUF0; // yes then get ADC value
+		voltage = (adc_value / 1023.0) * 3.3;	//caculate voltage
+		bar_value = (voltage / 3.3) * 10.0;		//calculate value to display on bar
+		//round to nearest integer, display value on bar graph
+		if (floor(bar_value) < (bar_value - 0.5))
+			display(((int) bar_value) + 1);
+		else
+			display((int) bar_value);
+		
 	}
 
+	//unreached
 	return 0;
 }
